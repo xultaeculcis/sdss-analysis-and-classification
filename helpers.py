@@ -1,7 +1,6 @@
 # To support both python 2 and python 3
 from __future__ import division, print_function, unicode_literals
 import warnings
-import helpers
 import matplotlib as mpl
 import os
 
@@ -10,25 +9,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import operator
-from collections import OrderedDict
 
 # Imports for ML
-from sklearn.ensemble import RandomForestClassifier, VotingClassifier, BaggingClassifier, AdaBoostClassifier, ExtraTreesClassifier
-from sklearn.linear_model import LogisticRegression, SGDClassifier, PassiveAggressiveClassifier, RidgeClassifier
-from sklearn.svm import SVC, LinearSVC, NuSVC
-from sklearn.neighbors import KNeighborsClassifier
-from xgboost import XGBClassifier
-from sklearn.preprocessing import PolynomialFeatures, RobustScaler
-from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict
-from sklearn.metrics import roc_auc_score, accuracy_score, confusion_matrix, precision_score, recall_score, f1_score, classification_report
-from sklearn.pipeline import Pipeline
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.neural_network import MLPClassifier
-from sklearn.gaussian_process import GaussianProcessClassifier
-from sklearn.gaussian_process.kernels import RBF
-from sklearn.naive_bayes import GaussianNB, MultinomialNB, ComplementNB
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+from sklearn.model_selection import cross_val_score, cross_val_predict
+from sklearn.metrics import roc_auc_score, confusion_matrix, classification_report
 
 # to make this notebook's output stable across runs
 np.random.seed(42)
@@ -44,10 +28,11 @@ PROJECT_ROOT_DIR = "."
 CHAPTER_ID = "results"
 IMAGES_PATH = os.path.join(PROJECT_ROOT_DIR, "images", CHAPTER_ID)
 
-# Helper functioins and structures
+# Helper functions and structures
 # Ignore useless warnings (see SciPy issue #5998)
 warnings.filterwarnings(action="ignore", message="^internal gelsd")
 IMAGES_PATH = "img"
+
 
 def save_fig(fig_id, tight_layout=True, fig_extension="png", resolution=300):
     path = os.path.join(IMAGES_PATH, fig_id + "." + fig_extension)
@@ -56,13 +41,26 @@ def save_fig(fig_id, tight_layout=True, fig_extension="png", resolution=300):
         plt.tight_layout()
     plt.savefig(path, format=fig_extension, dpi=resolution)
 
-def cv_learn(clf, X_train, y_train, X_test, y_test,
-             cv_size=5, scoring_type="accuracy", average_type="macro"):
+
+def cv_learn(clf, x_train, y_train, x_test, y_test,
+             cv_size=5, scoring_type="accuracy"):
+    """
+    Performs classifier learning process and validates the results.
+
+    :param clf: The classifier.
+    :param x_train: The training set.
+    :param y_train: The labels for training set.
+    :param x_test: The test set.
+    :param y_test: The labels for test set.
+    :param cv_size: Cross-Validation size. Default: 5.
+    :param scoring_type: Scoring type for Cross-Val-Score. Default: accuracy.
+    :return: Tuple with cross-val scores, predicted labels, confusion matrix, classification report (str. and dict.).
+    """
     # 5xCV
-    y_scores = cross_val_score(clf, X_train, y_train,
+    y_scores = cross_val_score(clf, x_train, y_train,
                                cv=cv_size, scoring=scoring_type)
     # Test Prediction
-    pred = cross_val_predict(clf, X_test, y_test, cv=cv_size)
+    pred = cross_val_predict(clf, x_test, y_test, cv=cv_size)
 
     # Conf. Matrix
     matrix = confusion_matrix(y_test, pred)
@@ -71,18 +69,40 @@ def cv_learn(clf, X_train, y_train, X_test, y_test,
     report_str = classification_report(y_test, pred)
     report_dict = classification_report(y_test, pred, output_dict=True)
 
-    return (y_scores, pred, matrix, report_str, report_dict)
+    return y_scores, pred, matrix, report_str, report_dict
 
 
 def print_cv_scores(scores):
+    """
+    Prints the cross-val acc. score.
+
+    :param scores: The cross_val_score function result.
+    :return:
+    """
     print("Accuracy: %0.3f (+/- %0.3f)" % (scores.mean(), scores.std() * 2))
 
 
 def print_conf_matrix(clf_name, matrix):
+    """
+    Prints the confusion matrix for specified classifier.
+
+    :param clf_name: The classifier name.
+    :param matrix: The confusion matrix.
+    :return:
+    """
     print(clf_name, ":\n", matrix)
 
 
 def plot_confusion_matrix(clf_name, class_names, cm, figsize):
+    """
+    Plots the confusion matrix for specified classfier.
+
+    :param clf_name: The classifier name.
+    :param class_names: The sorted list (alphabetically) of labels for the predicted classes.
+    :param cm: The confusion matrix.
+    :param figsize: The size of the plot. e.g. figsize=(10,5)
+    :return:
+    """
     df_cm = pd.DataFrame(cm, index=[i for i in class_names],
                          columns=[i for i in class_names])
     plt.figure(figsize=figsize)
@@ -91,6 +111,16 @@ def plot_confusion_matrix(clf_name, class_names, cm, figsize):
 
 
 def print_learning_results_multiple(classifs, class_names, scores, matrices, reports):
+    """
+    Prints learning results for multiple classifiers.
+
+    :param classifs: The classifiers.
+    :param class_names: The sorted list (alphabetically) of labels for the predicted classes.
+    :param scores: List of results from the cross_val_score() function for each of classifiers.
+    :param matrices: The confusion matrices.
+    :param reports: The classification reports.
+    :return:
+    """
     for item in zip(classifs, scores, matrices, reports):
         print(item[0])
         print(item[1])
@@ -103,6 +133,16 @@ def print_learning_results_multiple(classifs, class_names, scores, matrices, rep
 
 
 def print_learning_results_single(clf, class_names, scores, matrix, report):
+    """
+    Prints learning results for single classifier.
+
+    :param clf: The classifier.
+    :param class_names: The sorted list (alphabetically) of labels for the predicted classes.
+    :param scores: Results from the cross_val_score() function for specified classifier.
+    :param matrix: The confusion matrix.
+    :param report: The classification report.
+    :return:
+    """
     print(clf)
     print(scores)
     print_cv_scores(scores)
@@ -113,11 +153,22 @@ def print_learning_results_single(clf, class_names, scores, matrix, report):
     print("\n")
 
 
-class_names = ["GALAXY", "QSO", "STAR"]
-
-
 class ResultSet:
+    """
+    Represents result set for a single classifier.
+    """
+
     def __init__(self, clf_name, scores, predictions, matrix, report_str, report_dict):
+        """
+        Initializes new instance of the ResultSet class.
+
+        :param clf_name: The classifier's name.
+        :param scores: Results from the cross_val_score() function for specified classifier.
+        :param predictions: Predicted labels.
+        :param matrix: The confusion matrix.
+        :param report_str: The classification report represented as a string.
+        :param report_dict: The classification report represented as a dictionary.
+        """
         self.classifier_name = clf_name
         self.scores = scores
         self.predictions = predictions
@@ -127,6 +178,13 @@ class ResultSet:
 
 
 def print_kv_arr(ordered_by, arr):
+    """
+    Prints the array of key-value pairs, with specified ordering.
+
+    :param ordered_by: The ordering name.
+    :param arr: The array of key-value pairs.
+    :return:
+    """
     print(ordered_by)
     for kv in arr:
         print(kv[0], kv[1])
@@ -134,6 +192,14 @@ def print_kv_arr(ordered_by, arr):
 
 
 def roc_auc_score_multiclass(actual_class, pred_class, average="macro"):
+    """
+    Computes ROC AUC score for multi-class classification.
+
+    :param actual_class: The true class array.
+    :param pred_class: The predicted class array.
+    :param average: Type of the averaging. Default: "macro".
+    :return: The dictionary with scores for each class.
+    """
     # creating a set of all the unique classes using the actual class list
     unique_class = set(actual_class)
     roc_auc_dict = {}
@@ -154,12 +220,19 @@ def roc_auc_score_multiclass(actual_class, pred_class, average="macro"):
 
 
 def order_results(result_sets):
+    """
+    Performs ordering of the results in the result_sets array.
+
+
+    :param result_sets: The ResultSet array.
+    :return:
+    """
     by_acc = {}
+
     by_prec_micro = {}
     by_recall_micro = {}
     by_f1_micro = {}
 
-    by_acc_macro = {}
     by_prec_macro = {}
     by_recall_macro = {}
     by_f1_macro = {}
@@ -198,10 +271,23 @@ def order_results(result_sets):
     print_kv_arr("By F1(avg=macro):", sorted_f1_macro)
 
 
-def train_classif_single(clf, clf_name, class_names, X_train, y_train, X_test, y_test, result_sets):
+def train_classif_single(clf, clf_name, class_names, x_train, y_train, x_test, y_test, result_sets):
+    """
+    Performs learning process for a single classifier.
+
+    :param clf: The classifier.
+    :param clf_name: The classifier name.
+    :param class_names: The sorted list (alphabetically) of labels for the predicted classes.
+    :param x_train: The training set.
+    :param y_train: The labels for training set.
+    :param x_test: The test set.
+    :param y_test: The labels for test set.
+    :param result_sets: The result set array to which the results will be saved.
+    :return:
+    """
     try:
         scores, predictions, matrix, report_str, report_dict = cv_learn(
-        clf, X_train, y_train, X_test, y_test)
+            clf, x_train, y_train, x_test, y_test)
 
         # append results for later use
         result_sets.append(
@@ -214,15 +300,35 @@ def train_classif_single(clf, clf_name, class_names, X_train, y_train, X_test, y
         print("Something bad had happened... Could not proceed for the: ", clf_name, "\n")
 
 
-def train_classif_multiple(clfs, clf_names, class_names, X_train, y_train, X_test, y_test, result_sets):
+def train_classif_multiple(clfs, clf_names, class_names, x_train, y_train, x_test, y_test, result_sets):
+    """
+    Performs learning process for multiple classifiers.
+
+    :param clfs: The classifiers.
+    :param clf_names: The classifier names.
+    :param class_names: The sorted list (alphabetically) of labels for the predicted classes.
+    :param x_train: The training set.
+    :param y_train: The labels for training set.
+    :param x_test: The test set.
+    :param y_test: The labels for test set.
+    :param result_sets: The result set array to which the results will be saved.
+    :return:
+    """
     for clf in zip(clfs, clf_names):
-        train_classif_single(clf[0], clf[1], class_names, X_train, y_train, X_test, y_test, result_sets)
+        train_classif_single(clf[0], clf[1], class_names, x_train, y_train, x_test, y_test, result_sets)
 
     order_results(result_sets)
     print_roc_auc_scores(result_sets, y_test)
-        
+
 
 def print_roc_auc_scores(result_sets, y_true):
+    """
+    Prints the ROC AUC scores.
+
+    :param result_sets: The array of the ResultSet class instances.
+    :param y_true:
+    :return:
+    """
     for result_set in result_sets:
         print(result_set.classifier_name)
         # assuming your already have a list of actual_class and predicted_class
@@ -230,16 +336,38 @@ def print_roc_auc_scores(result_sets, y_true):
         print(score)
         print("\n")
 
+
 class DataSet:
-    def __init__(self, type, X_train, y_train, X_test, y_test):
-        self.type = type
-        self.X_train = X_train
-        self.X_test = X_test
+    """
+    Represents the data set on which the learning process will take place.
+    """
+
+    def __init__(self, data_set_type, x_train, y_train, x_test, y_test):
+        """
+
+        :param data_set_type: The name of the data set type e.g. "StdScaled", "MinMaxScaled", "MaxAbsScaled".
+        :param x_train: The training set.
+        :param y_train: The labels for training set.
+        :param x_test: The test set.
+        :param y_test: The labels for test set.
+        """
+        self.type = data_set_type
+        self.X_train = x_train
+        self.X_test = x_test
         self.y_train = y_train
         self.y_test = y_test
 
 
-def learining_loop_for_sets(clfs, clf_names, class_names, data_sets):
+def learning_loop_for_sets(clfs, clf_names, class_names, data_sets):
+    """
+    Performs learning of multiple classifiers on multiple data-sets.
+
+    :param clfs: The classifiers.
+    :param clf_names: The classifier names.
+    :param class_names: The sorted list (alphabetically) of labels for the predicted classes.
+    :param data_sets: The data sets.
+    :return:
+    """
     for data_set in data_sets:
         print("==========================================================")
         print("==========================================================")
