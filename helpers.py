@@ -143,7 +143,7 @@ def print_learning_results_single(clf, class_names, scores, matrix, report):
     :param report: The classification report.
     :return:
     """
-    print(clf)
+    #print(clf)
     print(scores)
     print_cv_scores(scores)
     print_conf_matrix(clf, matrix)
