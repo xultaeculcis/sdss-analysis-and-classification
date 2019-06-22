@@ -105,10 +105,14 @@ def plot_confusion_matrix(clf_name, class_names, cm, figsize):
     """
     df_cm = pd.DataFrame(cm, index=[i for i in class_names],
                          columns=[i for i in class_names])
-    plt.figure(figsize=figsize)
-    sns.heatmap(df_cm, annot=True, fmt="d", cmap="jet").set_title(
-        "Confusion Matrix for: " + str(clf_name))
+    ax= plt.subplot()
+    sns.heatmap(cm, annot=True, ax = ax, fmt="d"); #annot=True to annotate cells
 
+    # labels, title and ticks
+    ax.set_xlabel('Predicted labels');ax.set_ylabel('True labels'); 
+    ax.set_title('Confusion Matrix for: ' + clf_name, fontsize=15); 
+    ax.xaxis.set_ticklabels(class_names); ax.yaxis.set_ticklabels(class_names);
+    plt.show()
 
 def print_learning_results_multiple(classifs, class_names, scores, matrices, reports):
     """
@@ -127,7 +131,7 @@ def print_learning_results_multiple(classifs, class_names, scores, matrices, rep
         print_cv_scores(item[1])
         print_conf_matrix(item[0], item[2])
         # Plot non-normalized confusion matrix
-        plot_confusion_matrix(item[0], class_names, item[2], (10, 7))
+        plot_confusion_matrix(item[0], class_names, item[2], (5, 5))
         print(item[3])
         print("\n")
 
@@ -148,7 +152,7 @@ def print_learning_results_single(clf, class_names, scores, matrix, report):
     print_cv_scores(scores)
     print_conf_matrix(clf, matrix)
     # Plot non-normalized confusion matrix
-    plot_confusion_matrix(clf, class_names, matrix, (10, 7))
+    plot_confusion_matrix(clf, class_names, matrix, (5, 5))
     print(report)
     print("\n")
 
@@ -375,3 +379,5 @@ def learning_loop_for_sets(clfs, clf_names, class_names, data_sets):
         result_sets = []
         train_classif_multiple(clfs, clf_names, class_names,
                                data_set.X_train, data_set.y_train, data_set.X_test, data_set.y_test, result_sets)
+        
+    return result_sets
