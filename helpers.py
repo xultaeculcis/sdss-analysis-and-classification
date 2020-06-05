@@ -3,6 +3,7 @@ from __future__ import division, print_function, unicode_literals
 import warnings
 import matplotlib as mpl
 import os
+import traceback
 
 # Common imports
 import pandas as pd
@@ -162,7 +163,7 @@ class ResultSet:
     Represents result set for a single classifier.
     """
 
-    def __init__(self, clf_name, scores, predictions, matrix, report_str, report_dict):
+    def __init__(self, clf_name, scores, predictions, matrix, report_str, report_dict, dataset_type):
         """
         Initializes new instance of the ResultSet class.
 
@@ -179,6 +180,7 @@ class ResultSet:
         self.matrix = matrix
         self.report_str = report_str
         self.report_dict = report_dict
+        self.dataset_type = dataset_type
 
 
 def print_kv_arr(ordered_by, arr):
@@ -233,9 +235,9 @@ def order_results(result_sets):
     """
     by_acc = {}
 
-    by_prec_micro = {}
-    by_recall_micro = {}
-    by_f1_micro = {}
+#     by_prec_micro = {}
+#     by_recall_micro = {}
+#     by_f1_micro = {}
 
     by_prec_macro = {}
     by_recall_macro = {}
@@ -244,38 +246,38 @@ def order_results(result_sets):
     for result_set in result_sets:
         by_acc[result_set.classifier_name] = result_set.scores.mean()
 
-        micro_results = result_set.report_dict["micro avg"]
+#         micro_results = result_set.report_dict["micro avg"]
         macro_results = result_set.report_dict["macro avg"]
 
-        by_prec_micro[result_set.classifier_name] = micro_results["precision"]
+#         by_prec_micro[result_set.classifier_name] = micro_results["precision"]
         by_prec_macro[result_set.classifier_name] = macro_results["precision"]
 
-        by_recall_micro[result_set.classifier_name] = micro_results["recall"]
+#         by_recall_micro[result_set.classifier_name] = micro_results["recall"]
         by_recall_macro[result_set.classifier_name] = macro_results["recall"]
 
-        by_f1_micro[result_set.classifier_name] = micro_results["f1-score"]
+#         by_f1_micro[result_set.classifier_name] = micro_results["f1-score"]
         by_f1_macro[result_set.classifier_name] = macro_results["f1-score"]
 
     sorted_acc = sorted(by_acc.items(), key=lambda kv: kv[1], reverse=True)
 
-    sorted_prec_micro = sorted(by_prec_micro.items(), key=lambda kv: kv[1], reverse=True)
-    sorted_recall_micro = sorted(by_recall_micro.items(), key=lambda kv: kv[1], reverse=True)
-    sorted_f1_micro = sorted(by_f1_micro.items(), key=lambda kv: kv[1], reverse=True)
+#     sorted_prec_micro = sorted(by_prec_micro.items(), key=lambda kv: kv[1], reverse=True)
+#     sorted_recall_micro = sorted(by_recall_micro.items(), key=lambda kv: kv[1], reverse=True)
+#     sorted_f1_micro = sorted(by_f1_micro.items(), key=lambda kv: kv[1], reverse=True)
 
     sorted_prec_macro = sorted(by_prec_macro.items(), key=lambda kv: kv[1], reverse=True)
     sorted_recall_macro = sorted(by_recall_macro.items(), key=lambda kv: kv[1], reverse=True)
     sorted_f1_macro = sorted(by_f1_macro.items(), key=lambda kv: kv[1], reverse=True)
 
     print_kv_arr("By Acc:", sorted_acc)
-    print_kv_arr("By Precision(avg=micro):", sorted_prec_micro)
-    print_kv_arr("By Recall(avg=micro):", sorted_recall_micro)
-    print_kv_arr("By F1(avg=micro):", sorted_f1_micro)
+#     print_kv_arr("By Precision(avg=micro):", sorted_prec_micro)
+#     print_kv_arr("By Recall(avg=micro):", sorted_recall_micro)
+#     print_kv_arr("By F1(avg=micro):", sorted_f1_micro)
     print_kv_arr("By Precision(avg=macro):", sorted_prec_macro)
     print_kv_arr("By Recall(avg=macro):", sorted_recall_macro)
     print_kv_arr("By F1(avg=macro):", sorted_f1_macro)
 
 
-def train_classif_single(clf, clf_name, class_names, x_train, y_train, x_test, y_test, result_sets):
+def train_classif_single(clf, clf_name, class_names, x_train, y_train, x_test, y_test, result_sets, dataset_type):
     """
     Performs learning process for a single classifier.
 
@@ -295,16 +297,17 @@ def train_classif_single(clf, clf_name, class_names, x_train, y_train, x_test, y
 
         # append results for later use
         result_sets.append(
-            ResultSet(clf_name, scores, predictions, matrix, report_str, report_dict))
+            ResultSet(clf_name, scores, predictions, matrix, report_str, report_dict, dataset_type))
 
         # print results
         print_learning_results_single(
             clf_name, class_names, scores, matrix, report_str)
-    except:
+    except Exception as e:
         print("Something bad had happened... Could not proceed for the: ", clf_name, "\n")
+        traceback.print_exc()
 
 
-def train_classif_multiple(clfs, clf_names, class_names, x_train, y_train, x_test, y_test, result_sets):
+def train_classif_multiple(clfs, clf_names, class_names, x_train, y_train, x_test, y_test, result_sets, dataset_type):
     """
     Performs learning process for multiple classifiers.
 
@@ -319,7 +322,7 @@ def train_classif_multiple(clfs, clf_names, class_names, x_train, y_train, x_tes
     :return:
     """
     for clf in zip(clfs, clf_names):
-        train_classif_single(clf[0], clf[1], class_names, x_train, y_train, x_test, y_test, result_sets)
+        train_classif_single(clf[0], clf[1], class_names, x_train, y_train, x_test, y_test, result_sets, dataset_type)
 
     order_results(result_sets)
     print_roc_auc_scores(result_sets, y_test)
@@ -372,12 +375,21 @@ def learning_loop_for_sets(clfs, clf_names, class_names, data_sets):
     :param data_sets: The data sets.
     :return:
     """
+    
+    result_sets = []
     for data_set in data_sets:
         print("==========================================================")
         print("==========================================================")
         print("Data Set Type: ", data_set.type)
-        result_sets = []
-        train_classif_multiple(clfs, clf_names, class_names,
-                               data_set.X_train, data_set.y_train, data_set.X_test, data_set.y_test, result_sets)
+        train_classif_multiple(
+            clfs, clf_names,
+            class_names,
+            data_set.X_train,
+            data_set.y_train,
+            data_set.X_test,
+            data_set.y_test,
+            result_sets, 
+            data_set.type
+        )
         
     return result_sets
